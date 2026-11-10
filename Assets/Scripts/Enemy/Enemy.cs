@@ -24,10 +24,14 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float detectionRange = 10f;
     [SerializeField] private float hearingRange = 25f;
 
+
     [Header("Attack")]
     [SerializeField] private float attackRange = 2f;
+    [SerializeField] private float attackDamage = 15f;
     [SerializeField] private float attackWindup = 0.3f;
     [SerializeField] private float attackCooldown = 0.8f;
+    [SerializeField] private PlayerHealth playerHealth;
+
 
     private NavMeshAgent agent;
     private State state;
@@ -46,6 +50,7 @@ public class Enemy : MonoBehaviour
         {
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null) target = player.transform;
+            playerHealth = player.GetComponent<PlayerHealth>();
         }
     }
 
@@ -156,9 +161,23 @@ public class Enemy : MonoBehaviour
         FaceDirection(agent.desiredVelocity);
     }
 
+
     private void UpdateAttack()
     {
+        if (target == null)
+        {
+            ChangeState(State.Idle);
+            return;
+        }
+
         FaceDirection(DirectionToTarget());
+
+        // Если игрок вышел из радиуса атаки
+        if (!TargetInRange(attackRange))
+        {
+            ChangeState(State.Chase);
+            return;
+        }
 
         stateTimer -= Time.deltaTime;
 
@@ -173,9 +192,10 @@ public class Enemy : MonoBehaviour
         }
         else if (stateTimer <= 0f)
         {
-            ChangeState(State.Chase);   
+            ChangeState(State.Chase);
         }
     }
+
 
     private void UpdatePain()
     {
@@ -184,11 +204,21 @@ public class Enemy : MonoBehaviour
             ChangeState(State.Chase);   
     }
 
+
     private void PerformAttack()
     {
-        // TODO: нанести урон игроку (удар, снаряд, хитскан)
-        Debug.Log("Attack!");
+        if (playerHealth == null || playerHealth.IsDead)
+            return;
+
+        // Проверяем, не убежал ли игрок
+        if (!TargetInRange(attackRange))
+            return;
+
+        playerHealth.TakeDamage(attackDamage);
+
+        Debug.Log("Enemy attacked player!");
     }
+
 
     private void OnPlayerShot(Vector3 shotPosition)
     {

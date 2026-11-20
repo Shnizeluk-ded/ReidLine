@@ -6,11 +6,11 @@ public class WeaponSway : MonoBehaviour
     [SerializeField] private PlayerGun gun;
 
     [Header("Sway")]
-    [SerializeField] private float amplitudeX = 0.08f;     // ширина качания
-    [SerializeField] private float amplitudeY = 0.04f;     // глубина дуги
-    [SerializeField] private float cyclesPerMeter = 0.35f; // полных циклов влево-вправо на метр пути
-    [SerializeField] private float maxSpeedForSway = 6f;   // = maxSpeed игрока
-    [SerializeField] private float followSpeed = 14f;      // как быстро оружие догоняет цель
+    [SerializeField] private float amplitudeX = 0.08f;     
+    [SerializeField] private float amplitudeY = 0.04f;     
+    [SerializeField] private float cyclesPerMeter = 0.35f; 
+    [SerializeField] private float maxSpeedForSway = 6f;   
+    [SerializeField] private float followSpeed = 14f;     
 
     private Vector3 startLocalPos;
     private float phase;
@@ -37,7 +37,6 @@ public class WeaponSway : MonoBehaviour
         }
         else
         {
-            // следующий старт начнётся из центра
             phase = Mathf.PI * 0.5f;
         }
 

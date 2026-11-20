@@ -209,15 +209,21 @@ MonoBehaviour:
   health: 10
   painChance: 0.5
   painDuration: 0.4
-  chaseSpeed: 3
-  turnSpeed: 10
+  chaseSpeed: 5
+  turnSpeed: 15
   repathInterval: 0.2
   target: {fileID: 0}
   detectionRange: 10
   hearingRange: 25
   attackRange: 2
+  attackDamage: 15
   attackWindup: 0.3
   attackCooldown: 0.8
+  playerHealth: {fileID: 0}
+  spriteRenderer: {fileID: 1893298278871677613}
+  flashDuration: 0.1
+  originalColor: {r: 1, g: 1, b: 1, a: 1}
+  agent: {fileID: 7463474867725692767}
 --- !u!195 &7463474867725692767
 NavMeshAgent:
   m_ObjectHideFlags: 0

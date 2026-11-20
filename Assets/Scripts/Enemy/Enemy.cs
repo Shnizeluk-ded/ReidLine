@@ -32,8 +32,16 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float attackCooldown = 0.8f;
     [SerializeField] private PlayerHealth playerHealth;
 
+    [Header("Damage Flash")]
+    [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private float flashDuration = 0.2f;
 
-    private NavMeshAgent agent;
+    [SerializeField] private Color originalColor;
+    private Coroutine flashCoroutine;
+
+    private Room room;
+
+    [SerializeField]private NavMeshAgent agent;
     private State state;
     private bool isDead;
     private float stateTimer;
@@ -42,7 +50,6 @@ public class Enemy : MonoBehaviour
 
     private void Awake()
     {
-        agent = GetComponent<NavMeshAgent>();
         agent.speed = chaseSpeed;
         agent.updateRotation = false;  
 
@@ -80,6 +87,8 @@ public class Enemy : MonoBehaviour
         if (isDead) return;
 
         health -= damage;
+        PlayDamageFlash();
+
         if (health <= 0f)
         {
             Death();
@@ -96,10 +105,9 @@ public class Enemy : MonoBehaviour
     {
         isDead = true;
         StopAgent();
+        room.EnemyDied();
         Destroy(gameObject);
     }
-
-    // ---------- State machine ----------
 
     private void ChangeState(State newState)
     {
@@ -172,7 +180,6 @@ public class Enemy : MonoBehaviour
 
         FaceDirection(DirectionToTarget());
 
-        // Если игрок вышел из радиуса атаки
         if (!TargetInRange(attackRange))
         {
             ChangeState(State.Chase);
@@ -242,6 +249,11 @@ public class Enemy : MonoBehaviour
                Vector3.Distance(transform.position, target.position) <= range;
     }
 
+    public void SetRoom(Room room)
+    {
+        this.room = room;
+    }
+
     private Vector3 DirectionToTarget()
     {
         if (target == null) return Vector3.zero;
@@ -258,6 +270,27 @@ public class Enemy : MonoBehaviour
 
         Quaternion look = Quaternion.LookRotation(direction);
         transform.rotation = Quaternion.Slerp(transform.rotation, look, turnSpeed * Time.deltaTime);
+    }
+
+    private System.Collections.IEnumerator DamageFlash()
+    {
+        spriteRenderer.color = Color.red;
+
+        yield return new WaitForSeconds(flashDuration);
+
+        spriteRenderer.color = originalColor;
+        flashCoroutine = null;
+    }
+
+    private void PlayDamageFlash()
+    {
+        if (spriteRenderer == null) return;
+
+        // Если враг снова получил урон, перезапускаем эффект
+        if (flashCoroutine != null)
+            StopCoroutine(flashCoroutine);
+
+        flashCoroutine = StartCoroutine(DamageFlash());
     }
 
     private void OnDrawGizmosSelected()

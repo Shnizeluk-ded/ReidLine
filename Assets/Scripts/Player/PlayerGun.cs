@@ -1,3 +1,4 @@
+
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
@@ -6,6 +7,9 @@ public class PlayerGun : MonoBehaviour
 {
     [SerializeField] private float damage;
     [SerializeField] private float fireHoldTime = 0.25f;
+
+    [Header("Cooldown")]
+    [SerializeField] private float shootCooldown = 0.5f;
 
     [Header("Sprites")]
     [SerializeField] private SpriteRenderer spriteRenderer;
@@ -25,23 +29,29 @@ public class PlayerGun : MonoBehaviour
 
     private void Update()
     {
-        if (Mouse.current.leftButton.wasPressedThisFrame)
+        if (Mouse.current.leftButton.isPressed &&
+            Time.time >= lastShotTime + shootCooldown)
         {
-            lastShotTime = Time.time;
+            Shoot();
+        }
+    }
 
-            if (shootCoroutine != null)
-                StopCoroutine(shootCoroutine);
+    private void Shoot()
+    {
+        lastShotTime = Time.time;
 
-            shootCoroutine = StartCoroutine(ShowShootSprite());
+        if (shootCoroutine != null)
+            StopCoroutine(shootCoroutine);
 
-            RaycastHit hit;
+        shootCoroutine = StartCoroutine(ShowShootSprite());
 
-            if (Physics.Raycast(transform.position, transform.forward, out hit))
+        RaycastHit hit;
+
+        if (Physics.Raycast(transform.position, transform.forward, out hit))
+        {
+            if (hit.collider.TryGetComponent(out Enemy enemy))
             {
-                if (hit.collider.TryGetComponent(out Enemy enemy))
-                {
-                    enemy.TakeDamage(damage);
-                }
+                enemy.TakeDamage(damage);
             }
         }
     }

@@ -39,18 +39,15 @@ public class DungeonGenerator : MonoBehaviour
     {
         Clear();
 
-        // Берём стартовую комнату с текущего объекта
         StartRoom = GetComponent<Room>();
 
         if (StartRoom == null)
         {
-            Debug.LogError("DungeonGenerator requires Room component!");
             return;
         }
 
         if (roomPrefabs == null || roomPrefabs.Length == 0)
         {
-            Debug.LogError("Room Prefabs array is empty!");
             return;
         }
 
@@ -58,7 +55,6 @@ public class DungeonGenerator : MonoBehaviour
             ? new System.Random()
             : new System.Random(seed);
 
-        // Стартовая комната занимает клетку (0,0)
         StartRoom.GridPos = Vector2Int.zero;
         StartRoom.Distance = 0;
         StartRoom.name = "FirstRoom";
@@ -75,10 +71,6 @@ public class DungeonGenerator : MonoBehaviour
 
         AssignDistances();
     }
-
-    // --------------------------------
-    // 1. Генерация расположения
-    // --------------------------------
 
     private List<Vector2Int> BuildLayout()
     {
@@ -109,9 +101,6 @@ public class DungeonGenerator : MonoBehaviour
             cells.Add(next);
         }
 
-        if (cells.Count < roomCount)
-            Debug.LogWarning($"Generated only {cells.Count} rooms.");
-
         return cells;
     }
 
@@ -130,22 +119,15 @@ public class DungeonGenerator : MonoBehaviour
         return count;
     }
 
-    // --------------------------------
-    // 2. Создание комнат
-    // --------------------------------
-
-
     private void SpawnRooms(List<Vector2Int> cells)
     {
         Vector3 startPosition = StartRoom.transform.position;
 
         foreach (Vector2Int cell in cells)
         {
-            // Стартовую комнату пропускаем
             if (cell == Vector2Int.zero)
                 continue;
 
-            // Выбираем случайный префаб
             Room randomPrefab = roomPrefabs[
                 rng.Next(roomPrefabs.Length)
             ];
@@ -172,12 +154,6 @@ public class DungeonGenerator : MonoBehaviour
             rooms.Add(cell, room);
         }
     }
-
-
-    // --------------------------------
-    // 3. Соединение комнат
-    // --------------------------------
-
     private void ConnectDoors()
     {
         foreach (var pair in rooms)
@@ -200,11 +176,6 @@ public class DungeonGenerator : MonoBehaviour
             }
         }
     }
-
-    // --------------------------------
-    // 4. Расстояние от старта
-    // --------------------------------
-
     private void AssignDistances()
     {
         Queue<Room> queue = new();
@@ -241,16 +212,7 @@ public class DungeonGenerator : MonoBehaviour
                 queue.Enqueue(neighbor);
             }
         }
-
-        Debug.Log(
-            $"Dungeon generated! Rooms: {rooms.Count}, " +
-            $"End distance: {EndRoom.Distance}"
-        );
     }
-
-    // --------------------------------
-    // 5. Очистка
-    // --------------------------------
 
     private void Clear()
     {

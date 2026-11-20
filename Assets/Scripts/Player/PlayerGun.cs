@@ -6,18 +6,16 @@ using System.Collections;
 public class PlayerGun : MonoBehaviour
 {
     [SerializeField] private float damage;
-    [SerializeField] private float fireHoldTime = 0.25f;
+    [SerializeField] private float fireHoldTime;
 
-    [Header("Cooldown")]
-    [SerializeField] private float shootCooldown = 0.5f;
+    [SerializeField] private float shootCooldown;
 
-    [Header("Sprites")]
     [SerializeField] private SpriteRenderer spriteRenderer;
     [SerializeField] private Sprite ShootSprite;
-    [SerializeField] private float shootSpriteTime = 0.2f;
+    [SerializeField] private float shootSpriteTime;
 
     private Sprite defaultSprite;
-    private float lastShotTime = -100f;
+    private float lastShotTime;
     private Coroutine shootCoroutine;
 
     public bool IsFiring => Time.time < lastShotTime + fireHoldTime;

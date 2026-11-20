@@ -1,12 +1,14 @@
 using UnityEngine;
+using UnityEngine.Events;
 
 public class PlayerHealth : MonoBehaviour
 {
-    [Header("Health")]
-    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private float maxHealth;
 
     public float currentHealth;
     private bool isDead;
+
+    public UnityEvent<float, float> onHealthChanged;
 
     public float CurrentHealth => currentHealth;
     public float MaxHealth => maxHealth;
@@ -17,6 +19,11 @@ public class PlayerHealth : MonoBehaviour
         currentHealth = maxHealth;
     }
 
+    private void Start()
+    {
+        onHealthChanged?.Invoke(currentHealth, maxHealth);
+    }
+
     public void TakeDamage(float damage)
     {
         if (isDead || damage <= 0f) return;
@@ -24,20 +31,25 @@ public class PlayerHealth : MonoBehaviour
         currentHealth -= damage;
         currentHealth = Mathf.Max(currentHealth, 0f);
 
-        Debug.Log("Player Health: " + currentHealth);
+        onHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (currentHealth <= 0f)
             Die();
+    }
+
+    public void Heal(float amount)
+    {
+        if (isDead || amount <= 0f) return;
+
+        currentHealth = Mathf.Min(currentHealth + amount, maxHealth);
+
+        onHealthChanged?.Invoke(currentHealth, maxHealth);
     }
 
     private void Die()
     {
         isDead = true;
 
-        Debug.Log("Player died!");
-
-        // TODO: Здесь можно добавить анимацию смерти,
-        // экран проигрыша и перезапуск уровня.
+        RunManager.Instance.EndRun();
     }
 }
-

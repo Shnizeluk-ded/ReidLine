@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -6,68 +7,60 @@ public class Enemy : MonoBehaviour
 {
     private enum State { Idle, Chase, Attack, Pain }
 
-    private static event Action<Vector3> PlayerShot;
-    public static void NotifyPlayerShot(Vector3 shotPosition) => PlayerShot?.Invoke(shotPosition);
+    public static event Action<Vector3> PlayerShot;
+    public static void NotifyPlayerShot(Vector3 pos) => PlayerShot?.Invoke(pos);
 
-    [Header("Health")]
     [SerializeField] private float health = 100f;
     [SerializeField, Range(0f, 1f)] private float painChance = 0.5f;
     [SerializeField] private float painDuration = 0.4f;
 
-    [Header("Movement")]
     [SerializeField] private float chaseSpeed = 3.5f;
     [SerializeField] private float turnSpeed = 10f;
     [SerializeField] private float repathInterval = 0.2f;
-
-    [Header("Detection")]
-    [SerializeField] private Transform target;
     [SerializeField] private float detectionRange = 10f;
     [SerializeField] private float hearingRange = 25f;
 
-
-    [Header("Attack")]
     [SerializeField] private float attackRange = 2f;
     [SerializeField] private float attackDamage = 15f;
     [SerializeField] private float attackWindup = 0.3f;
     [SerializeField] private float attackCooldown = 0.8f;
-    [SerializeField] private PlayerHealth playerHealth;
 
-    [Header("Damage Flash")]
+    [SerializeField] private Transform target;
+    [SerializeField] private PlayerHealth playerHealth;
     [SerializeField] private SpriteRenderer spriteRenderer;
+    [SerializeField] private NavMeshAgent agent;
+    [SerializeField] private Room room;
+
     [SerializeField] private float flashDuration = 0.2f;
 
-    [SerializeField] private Color originalColor;
-    private Coroutine flashCoroutine;
-
-    private Room room;
-
-    [SerializeField]private NavMeshAgent agent;
     private State state;
     private bool isDead;
     private float stateTimer;
     private float repathTimer;
     private bool attackDone;
+    private Color originalColor;
+    private Coroutine flashCoroutine;
 
     private void Awake()
     {
         agent.speed = chaseSpeed;
-        agent.updateRotation = false;  
+        agent.updateRotation = false;
 
         if (target == null)
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            var player = GameObject.FindGameObjectWithTag("Player");
             if (player != null) target = player.transform;
-            playerHealth = player.GetComponent<PlayerHealth>();
         }
+        if (playerHealth == null && target != null)
+            playerHealth = target.GetComponent<PlayerHealth>();
+
+        if (spriteRenderer != null) originalColor = spriteRenderer.color;
     }
 
     private void OnEnable() => PlayerShot += OnPlayerShot;
     private void OnDisable() => PlayerShot -= OnPlayerShot;
 
-    private void Start()
-    {
-        ChangeState(State.Idle);
-    }
+    private void Start() => ChangeState(State.Idle);
 
     private void Update()
     {
@@ -89,74 +82,23 @@ public class Enemy : MonoBehaviour
         health -= damage;
         PlayDamageFlash();
 
-        if (health <= 0f)
-        {
-            Death();
-            return;
-        }
+        if (health <= 0f) { Death(); return; }
 
-        if (UnityEngine.Random.value < painChance)
-            ChangeState(State.Pain);        
-        else if (state == State.Idle)
-            ChangeState(State.Chase);        
+        if (UnityEngine.Random.value < painChance) ChangeState(State.Pain);
+        else if (state == State.Idle) ChangeState(State.Chase);
     }
 
-    private void Death()
-    {
-        isDead = true;
-        StopAgent();
-        room.EnemyDied();
-        Destroy(gameObject);
-    }
-
-    private void ChangeState(State newState)
-    {
-        state = newState;
-
-        switch (newState)
-        {
-            case State.Idle:
-                StopAgent();
-                break;
-
-            case State.Chase:
-                if (agent.isOnNavMesh) agent.isStopped = false;
-                repathTimer = 0f;            
-                break;
-
-            case State.Attack:
-                StopAgent();
-                stateTimer = attackWindup;
-                attackDone = false;
-                break;
-
-            case State.Pain:
-                StopAgent();
-                stateTimer = painDuration;
-                break;
-        }
-    }
+    public void SetRoom(Room room) => this.room = room;
 
     private void UpdateIdle()
     {
-        if (TargetInRange(detectionRange))
-            ChangeState(State.Chase);
+        if (TargetInRange(detectionRange)) ChangeState(State.Chase);
     }
 
     private void UpdateChase()
     {
-        if (target == null)
-        {
-            ChangeState(State.Idle);
-            return;
-        }
-
-        if (TargetInRange(attackRange))
-        {
-            ChangeState(State.Attack);
-            return;
-        }
-
+        if (target == null) { ChangeState(State.Idle); return; }
+        if (TargetInRange(attackRange)) { ChangeState(State.Attack); return; }
         if (!agent.isOnNavMesh) return;
 
         repathTimer -= Time.deltaTime;
@@ -169,22 +111,13 @@ public class Enemy : MonoBehaviour
         FaceDirection(agent.desiredVelocity);
     }
 
-
     private void UpdateAttack()
     {
-        if (target == null)
-        {
-            ChangeState(State.Idle);
-            return;
-        }
+        if (target == null) { ChangeState(State.Idle); return; }
 
         FaceDirection(DirectionToTarget());
 
-        if (!TargetInRange(attackRange))
-        {
-            ChangeState(State.Chase);
-            return;
-        }
+        if (!TargetInRange(attackRange)) { ChangeState(State.Chase); return; }
 
         stateTimer -= Time.deltaTime;
 
@@ -203,81 +136,83 @@ public class Enemy : MonoBehaviour
         }
     }
 
-
     private void UpdatePain()
     {
         stateTimer -= Time.deltaTime;
-        if (stateTimer <= 0f)
-            ChangeState(State.Chase);   
+        if (stateTimer <= 0f) ChangeState(State.Chase);
     }
 
+    private void ChangeState(State newState)
+    {
+        state = newState;
+
+        switch (newState)
+        {
+            case State.Idle: StopAgent(); break;
+            case State.Chase: ResumeAgent(); repathTimer = 0f; break;
+            case State.Attack: StopAgent(); stateTimer = attackWindup; attackDone = false; break;
+            case State.Pain: StopAgent(); stateTimer = painDuration; break;
+        }
+    }
 
     private void PerformAttack()
     {
-        if (playerHealth == null || playerHealth.IsDead)
-            return;
-
-        // Проверяем, не убежал ли игрок
-        if (!TargetInRange(attackRange))
-            return;
-
+        if (playerHealth == null || playerHealth.IsDead) return;
+        if (!TargetInRange(attackRange)) return;
         playerHealth.TakeDamage(attackDamage);
-
-        Debug.Log("Enemy attacked player!");
     }
-
 
     private void OnPlayerShot(Vector3 shotPosition)
     {
         if (isDead || state != State.Idle) return;
-
         if (Vector3.Distance(transform.position, shotPosition) <= hearingRange)
             ChangeState(State.Chase);
+    }
+
+    private void Death()
+    {
+        isDead = true;
+        StopAgent();
+        room?.EnemyDied();
+        Destroy(gameObject);
     }
 
     private void StopAgent()
     {
         if (!agent.isOnNavMesh) return;
-
         agent.isStopped = true;
         agent.velocity = Vector3.zero;
     }
 
-    private bool TargetInRange(float range)
+    private void ResumeAgent()
     {
-        return target != null &&
-               Vector3.Distance(transform.position, target.position) <= range;
+        if (!agent.isOnNavMesh) return;
+        agent.isStopped = false;
     }
 
-    public void SetRoom(Room room)
-    {
-        this.room = room;
-    }
+    private bool TargetInRange(float range) =>
+        target != null && Vector3.Distance(transform.position, target.position) <= range;
 
     private Vector3 DirectionToTarget()
     {
         if (target == null) return Vector3.zero;
-
-        Vector3 direction = target.position - transform.position;
-        direction.y = 0f;
-        return direction.normalized;
+        var d = target.position - transform.position;
+        d.y = 0f;
+        return d.sqrMagnitude < 0.001f ? Vector3.zero : d.normalized;
     }
 
     private void FaceDirection(Vector3 direction)
     {
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.001f) return;
-
-        Quaternion look = Quaternion.LookRotation(direction);
+        var look = Quaternion.LookRotation(direction);
         transform.rotation = Quaternion.Slerp(transform.rotation, look, turnSpeed * Time.deltaTime);
     }
 
-    private System.Collections.IEnumerator DamageFlash()
+    private IEnumerator DamageFlash()
     {
         spriteRenderer.color = Color.red;
-
         yield return new WaitForSeconds(flashDuration);
-
         spriteRenderer.color = originalColor;
         flashCoroutine = null;
     }
@@ -285,21 +220,7 @@ public class Enemy : MonoBehaviour
     private void PlayDamageFlash()
     {
         if (spriteRenderer == null) return;
-
-        // Если враг снова получил урон, перезапускаем эффект
-        if (flashCoroutine != null)
-            StopCoroutine(flashCoroutine);
-
+        if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(DamageFlash());
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, detectionRange);
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, attackRange);
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(transform.position, hearingRange);
     }
 }

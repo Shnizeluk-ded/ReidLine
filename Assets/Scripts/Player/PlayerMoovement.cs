@@ -3,11 +3,11 @@ using UnityEngine.InputSystem;
 
 public class PlayerMoovement : MonoBehaviour
 {
-    [SerializeField] private float maxSpeed = 6f;
-    [SerializeField] private float accelTime = 0.5f;   
-    [SerializeField] private float decelTime = 0.5f;   
+    [SerializeField] private float maxSpeed;
+    [SerializeField] private float accelTime;   
+    [SerializeField] private float decelTime;   
     [SerializeField] private float turnSpeed;
-    [SerializeField] private float gravity = -20f;
+    [SerializeField] private float gravity;
 
     [SerializeField] private CharacterController cc;
 
@@ -46,7 +46,6 @@ public class PlayerMoovement : MonoBehaviour
             t = Mathf.MoveTowards(t, 0f, Time.deltaTime / decelTime);
         }
 
-        // квадратичная зависимость: скорость ~ t^2
         velocity = moveDir * (maxSpeed * t * t);
 
         vy = cc.isGrounded ? -2f : vy + gravity * Time.deltaTime;

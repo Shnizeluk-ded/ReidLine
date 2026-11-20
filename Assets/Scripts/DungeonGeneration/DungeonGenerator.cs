@@ -1,34 +1,28 @@
-
 using System.Collections.Generic;
 using UnityEngine;
 
 public class DungeonGenerator : MonoBehaviour
 {
-    [Header("References")]
     [SerializeField] private Room[] roomPrefabs;
-
-    [Header("Generation")]
-    [SerializeField] private float roomSize = 40f;
-    [SerializeField] private int roomCount = 12;
-    [SerializeField] private int seed = 0;
+    [SerializeField] private float roomSize = 10f;
+    [SerializeField] private int roomCount = 10;
 
     // N, E, S, W
-    static readonly Vector2Int[] Dirs =
+    private static readonly Vector2Int[] Dirs =
     {
-        new Vector2Int(0, 1),
-        new Vector2Int(1, 0),
-        new Vector2Int(0, -1),
-        new Vector2Int(-1, 0)
+        new(0, 1),
+        new(1, 0),
+        new(0, -1),
+        new(-1, 0)
     };
 
-    static readonly int[] Opposite = { 2, 3, 0, 1 };
+    private static readonly int[] Opposite = { 2, 3, 0, 1 };
 
-    private readonly Dictionary<Vector2Int, Room> rooms = new();
+    private Dictionary<Vector2Int, Room> rooms = new();
+    private System.Random rng;
 
     public Room StartRoom { get; private set; }
     public Room EndRoom { get; private set; }
-
-    private System.Random rng;
 
     private void Start()
     {
@@ -41,60 +35,47 @@ public class DungeonGenerator : MonoBehaviour
 
         StartRoom = GetComponent<Room>();
 
-        if (StartRoom == null)
-        {
+        if (StartRoom == null || roomPrefabs.Length == 0)
             return;
-        }
 
-        if (roomPrefabs == null || roomPrefabs.Length == 0)
-        {
-            return;
-        }
-
-        rng = seed == 0
-            ? new System.Random()
-            : new System.Random(seed);
+        rng = new System.Random();
 
         StartRoom.GridPos = Vector2Int.zero;
         StartRoom.Distance = 0;
         StartRoom.name = "FirstRoom";
-
         StartRoom.CloseAllDoors();
 
         rooms.Add(Vector2Int.zero, StartRoom);
 
-        List<Vector2Int> layout = BuildLayout();
+        List<Vector2Int> layout = GenerateLayout();
 
         SpawnRooms(layout);
-
         ConnectDoors();
-
-        AssignDistances();
+        CalculateDistances();
     }
 
-    private List<Vector2Int> BuildLayout()
+    private List<Vector2Int> GenerateLayout()
     {
-        List<Vector2Int> cells = new()
-        {
-            Vector2Int.zero
-        };
+        List<Vector2Int> cells = new() { Vector2Int.zero };
+        HashSet<Vector2Int> occupied = new() { Vector2Int.zero };
 
-        HashSet<Vector2Int> occupied = new()
-        {
-            Vector2Int.zero
-        };
+        int attempts = 10000;
 
-        int safety = 10000;
-
-        while (cells.Count < roomCount && safety-- > 0)
+        while (cells.Count < roomCount && attempts-- > 0)
         {
-            Vector2Int from = cells[rng.Next(cells.Count)];
-            Vector2Int next = from + Dirs[rng.Next(4)];
+            Vector2Int cell = cells[rng.Next(cells.Count)];
+            Vector2Int next = cell + Dirs[rng.Next(4)];
 
             if (occupied.Contains(next))
                 continue;
 
-            if (CountNeighbors(next, occupied) > 1)
+            int neighbors = 0;
+
+            foreach (Vector2Int dir in Dirs)
+                if (occupied.Contains(next + dir))
+                    neighbors++;
+
+            if (neighbors > 1)
                 continue;
 
             occupied.Add(next);
@@ -102,21 +83,6 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         return cells;
-    }
-
-    private int CountNeighbors(
-        Vector2Int cell,
-        HashSet<Vector2Int> occupied)
-    {
-        int count = 0;
-
-        foreach (Vector2Int dir in Dirs)
-        {
-            if (occupied.Contains(cell + dir))
-                count++;
-        }
-
-        return count;
     }
 
     private void SpawnRooms(List<Vector2Int> cells)
@@ -128,9 +94,7 @@ public class DungeonGenerator : MonoBehaviour
             if (cell == Vector2Int.zero)
                 continue;
 
-            Room randomPrefab = roomPrefabs[
-                rng.Next(roomPrefabs.Length)
-            ];
+            Room prefab = roomPrefabs[rng.Next(roomPrefabs.Length)];
 
             Vector3 position = startPosition + new Vector3(
                 cell.x * roomSize,
@@ -138,56 +102,44 @@ public class DungeonGenerator : MonoBehaviour
                 cell.y * roomSize
             );
 
-            Room room = Instantiate(
-                randomPrefab,
-                position,
-                Quaternion.identity,
-                transform
-            );
+            Room room = Instantiate(prefab, position, Quaternion.identity, transform);
 
             room.GridPos = cell;
             room.Distance = 0;
             room.name = $"Room {cell.x},{cell.y}";
-
             room.CloseAllDoors();
 
             rooms.Add(cell, room);
         }
     }
+
     private void ConnectDoors()
     {
         foreach (var pair in rooms)
         {
-            Vector2Int position = pair.Key;
-            Room currentRoom = pair.Value;
+            Room room = pair.Value;
 
-            for (int dir = 0; dir < 4; dir++)
+            for (int i = 0; i < 4; i++)
             {
-                Vector2Int neighborPosition = position + Dirs[dir];
+                Vector2Int next = pair.Key + Dirs[i];
+                bool connected = rooms.TryGetValue(next, out Room neighbor);
 
-                if (!rooms.TryGetValue(neighborPosition, out Room neighbor))
-                {
-                    currentRoom.SetDoor(dir, false);
-                    continue;
-                }
+                room.SetDoor(i, connected);
 
-                currentRoom.SetDoor(dir, true);
-                neighbor.SetDoor(Opposite[dir], true);
+                if (connected)
+                    neighbor.SetDoor(Opposite[i], true);
             }
         }
     }
-    private void AssignDistances()
+
+    private void CalculateDistances()
     {
         Queue<Room> queue = new();
-        HashSet<Vector2Int> visited = new()
-        {
-            StartRoom.GridPos
-        };
+        HashSet<Vector2Int> visited = new() { StartRoom.GridPos };
 
         StartRoom.Distance = 0;
-        queue.Enqueue(StartRoom);
-
         EndRoom = StartRoom;
+        queue.Enqueue(StartRoom);
 
         while (queue.Count > 0)
         {
@@ -198,17 +150,13 @@ public class DungeonGenerator : MonoBehaviour
 
             foreach (Vector2Int dir in Dirs)
             {
-                Vector2Int nextPosition = current.GridPos + dir;
+                Vector2Int next = current.GridPos + dir;
 
-                if (visited.Contains(nextPosition))
+                if (visited.Contains(next) || !rooms.TryGetValue(next, out Room neighbor))
                     continue;
 
-                if (!rooms.TryGetValue(nextPosition, out Room neighbor))
-                    continue;
-
-                visited.Add(nextPosition);
+                visited.Add(next);
                 neighbor.Distance = current.Distance + 1;
-
                 queue.Enqueue(neighbor);
             }
         }
@@ -216,16 +164,13 @@ public class DungeonGenerator : MonoBehaviour
 
     private void Clear()
     {
-        foreach (var pair in rooms)
+        foreach (Room room in rooms.Values)
         {
-            Room room = pair.Value;
-
-            if (room != null && room.gameObject != gameObject)
+            if (room != null && room != StartRoom)
                 Destroy(room.gameObject);
         }
 
         rooms.Clear();
-
         StartRoom = null;
         EndRoom = null;
     }
